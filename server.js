@@ -359,6 +359,14 @@ app.get('/users/:userId/orders', async (request, reply) => {
   });
 });
 
+// [Helper for Testing] GET /all-products - View all products currently in database
+app.get('/all-products', async (request, reply) => {
+  return reply.code(200).send({
+    total: productsMap.size,
+    products: Array.from(productsMap.values())
+  });
+});
+
 // ==============================================================================
 // 7. START SERVER (Listens on 0.0.0.0:8080 as required)
 // ==============================================================================
