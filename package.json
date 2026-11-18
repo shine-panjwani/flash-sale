@@ -1,0 +1,14 @@
+{
+  "name": "flash-sale-server",
+  "version": "1.0.0",
+  "description": "Kodr Challenge - Last Server Standing Flash Sale API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-all.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "fastify": "^5.2.1"
+  }
+}

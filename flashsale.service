@@ -1,0 +1,16 @@
+[Unit]
+Description=Kodr Flash Sale High Performance API
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/flash-sale
+ExecStart=/usr/bin/node /home/ubuntu/flash-sale/server.js
+Restart=always
+RestartSec=1s
+LimitNOFILE=65535
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
