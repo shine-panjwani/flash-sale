@@ -3,7 +3,7 @@ const http = require('http');
 
 const AGENT = new http.Agent({
   keepAlive: true,
-  maxSockets: 200,
+  maxSockets: 1000,
 });
 
 const TARGET_RPS = parseInt(process.argv[2] || '3000', 10);

@@ -26,6 +26,7 @@ db.pragma('synchronous = NORMAL');     // Fast commits that survive process cras
 db.pragma('temp_store = MEMORY');      // Temporary tables/indexes in RAM
 db.pragma('cache_size = -64000');      // 64 MB SQLite page cache
 db.pragma('mmap_size = 268435456');    // 256 MB memory-mapped I/O for lightning reads
+db.pragma('wal_autocheckpoint = 20000'); // Higher checkpoint threshold to avoid pauses under heavy load
 
 // Schema creation with strict UNIQUE index to block duplicate purchases
 db.exec(`
@@ -265,14 +266,7 @@ app.get('/products', async (request, reply) => {
 
   let items = [];
   if (startIndex < total) {
-    const slice = catList.slice(startIndex, startIndex + limit);
-    items = slice.map(p => ({
-      id: p.id,
-      name: p.name,
-      category: p.category,
-      price: p.price,
-      stock: p.stock
-    }));
+    items = catList.slice(startIndex, startIndex + limit);
   }
 
   return reply.code(200).send({
@@ -356,14 +350,6 @@ app.get('/users/:userId/orders', async (request, reply) => {
   return reply.code(200).send({
     userId,
     orders
-  });
-});
-
-// [Helper for Testing] GET /all-products - View all products currently in database
-app.get('/all-products', async (request, reply) => {
-  return reply.code(200).send({
-    total: productsMap.size,
-    products: Array.from(productsMap.values())
   });
 });
 
