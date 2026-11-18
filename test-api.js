@@ -29,6 +29,12 @@ function assert(condition, message) {
 
 async function runTests() {
   console.log('--- STARTING FLASH SALE API TEST SUITE ---\n');
+  const runId = Date.now().toString(36);
+  const testProdId = `pixel_${runId}`;
+  const testUserId = `u_${runId}`;
+  const plastId = `plast_${runId}`;
+  const pclickId = `pclick_${runId}`;
+  const sortCat = `c_sort_${runId}`;
 
   // 1. Health check
   console.log('1. Testing /health...');
@@ -51,7 +57,7 @@ async function runTests() {
   // 2. Create products
   console.log('\n2. Testing POST /products...');
   const prod1 = await request('POST', '/products', {
-    id: 'pixel10',
+    id: testProdId,
     name: 'Pixel 10 Pro 256GB',
     category: 'electronics',
     price: 79999,
@@ -61,7 +67,7 @@ async function runTests() {
 
   // Test duplicate product
   const prodDup = await request('POST', '/products', {
-    id: 'pixel10',
+    id: testProdId,
     name: 'Duplicate Phone',
     category: 'electronics',
     price: 89999,
@@ -71,7 +77,7 @@ async function runTests() {
 
   // Test invalid product
   const prodInvalid = await request('POST', '/products', {
-    id: 'badprod',
+    id: `bad_${runId}`,
     name: 'Bad Product',
     category: 'electronics',
     price: -10, // negative price
@@ -81,70 +87,69 @@ async function runTests() {
 
   // 3. Read one product
   console.log('\n3. Testing GET /products/:id...');
-  const getProd = await request('GET', '/products/pixel10');
-  assert(getProd.status === 200 && getProd.data.id === 'pixel10', 'GET /products/pixel10 returns 200');
+  const getProd = await request('GET', `/products/${testProdId}`);
+  assert(getProd.status === 200 && getProd.data.id === testProdId, `GET /products/${testProdId} returns 200`);
 
   const getNotFound = await request('GET', '/products/nonexistent_id');
   assert(getNotFound.status === 404 && getNotFound.data.error === 'PRODUCT_NOT_FOUND', 'GET non-existent product returns 404 PRODUCT_NOT_FOUND');
 
   // 4. List category & pagination
   console.log('\n4. Testing GET /products?category=...&page=...&limit=...');
-  // Add 2 more products to electronics for sorting test
   await request('POST', '/products', {
-    id: 'p_case',
+    id: `p_case_${runId}`,
     name: 'Phone Case',
-    category: 'electronics',
+    category: sortCat,
     price: 349,
     stock: 1000
   });
   await request('POST', '/products', {
-    id: 'p_bottle',
+    id: `p_bottle_${runId}`,
     name: 'Bottle',
-    category: 'electronics',
+    category: sortCat,
     price: 349, // same price, should sort by id ASC: p_bottle comes before p_case
     stock: 1000
   });
 
-  const catList = await request('GET', '/products?category=electronics&page=1&limit=2');
+  const catList = await request('GET', `/products?category=${sortCat}&page=1&limit=2`);
   assert(catList.status === 200 && catList.data.items.length === 2, 'GET category returns correct limit');
-  assert(catList.data.total >= 3, 'GET category returns total count');
-  assert(catList.data.items[0].id === 'p_bottle' && catList.data.items[1].id === 'p_case', 'Sort order: price ASC, then id ASC tie-break is correct');
+  assert(catList.data.total === 2, 'GET category returns total count');
+  assert(catList.data.items[0].id === `p_bottle_${runId}` && catList.data.items[1].id === `p_case_${runId}`, 'Sort order: price ASC, then id ASC tie-break is correct');
 
   // Empty category
   const emptyCat = await request('GET', '/products?category=unknown_category');
   assert(emptyCat.status === 200 && emptyCat.data.items.length === 0 && emptyCat.data.total === 0, 'Empty category returns items: [] and total: 0');
 
   // Invalid category / limit
-  const badLimit = await request('GET', '/products?category=electronics&limit=80');
+  const badLimit = await request('GET', `/products?category=${sortCat}&limit=80`);
   assert(badLimit.status === 400 && badLimit.data.error === 'VALIDATION_ERROR', 'Limit > 50 returns 400 VALIDATION_ERROR');
 
   // 5. Test Orders (Single & Duplicate)
   console.log('\n5. Testing POST /orders...');
   const order1 = await request('POST', '/orders', {
-    userId: 'u_alice',
-    productId: 'pixel10'
+    userId: testUserId,
+    productId: testProdId
   });
-  assert(order1.status === 201 && order1.data.userId === 'u_alice', 'POST /orders succeeds with 201');
+  assert(order1.status === 201 && order1.data.userId === testUserId, 'POST /orders succeeds with 201');
 
   // Duplicate order by same user
   const orderDup = await request('POST', '/orders', {
-    userId: 'u_alice',
-    productId: 'pixel10'
+    userId: testUserId,
+    productId: testProdId
   });
   assert(orderDup.status === 409 && orderDup.data.error === 'ALREADY_PURCHASED', 'Same user re-buying returns 409 ALREADY_PURCHASED');
 
   // 6. User Orders list
   console.log('\n6. Testing GET /users/:userId/orders...');
-  const userOrders = await request('GET', '/users/u_alice/orders');
+  const userOrders = await request('GET', `/users/${testUserId}/orders`);
   assert(userOrders.status === 200 && userOrders.data.orders.length === 1, 'GET user orders returns list of orders');
 
-  const emptyUserOrders = await request('GET', '/users/u_bob_empty/orders');
+  const emptyUserOrders = await request('GET', `/users/u_empty_${runId}/orders`);
   assert(emptyUserOrders.status === 200 && emptyUserOrders.data.orders.length === 0, 'User with no orders returns 200 with orders: []');
 
   // 7. Test 1 from Spec: The Last Unit (Overselling test with 50 parallel buyers)
   console.log('\n7. Running Spec Test 1: The Last Unit (50 parallel buyers for 1 stock)...');
   await request('POST', '/products', {
-    id: 'plast1',
+    id: plastId,
     name: 'Last Unit Test',
     category: 'test_drop',
     price: 100,
@@ -153,7 +158,7 @@ async function runTests() {
 
   const parallel50Promises = [];
   for (let i = 1; i <= 50; i++) {
-    parallel50Promises.push(request('POST', '/orders', { userId: `user_drop_${i}`, productId: 'plast1' }));
+    parallel50Promises.push(request('POST', '/orders', { userId: `user_drop_${runId}_${i}`, productId: plastId }));
   }
   const parallel50Results = await Promise.all(parallel50Promises);
 
@@ -163,13 +168,13 @@ async function runTests() {
   console.log(`   Results -> 201 Created: ${count201}, 409 Conflicts: ${count409}`);
   assert(count201 === 1 && count409 === 49, 'EXACTLY 1 buyer got 201, and 49 buyers got 409 (Zero Overselling)');
 
-  const plastCheck = await request('GET', '/products/plast1');
+  const plastCheck = await request('GET', `/products/${plastId}`);
   assert(plastCheck.data.stock === 0, 'Final stock is exactly 0, never negative');
 
-  // 8. Test 2 from Spec: Double-Click (Same user sending 20 orders at the same moment)
+  // 8. Test 2 from Spec: Double-Click (20 simultaneous clicks from same user)
   console.log('\n8. Running Spec Test 2: Double-Click (20 simultaneous clicks from same user)...');
   await request('POST', '/products', {
-    id: 'pclick1',
+    id: pclickId,
     name: 'Double Click Test',
     category: 'test_drop',
     price: 500,
@@ -178,7 +183,7 @@ async function runTests() {
 
   const doubleClickPromises = [];
   for (let i = 1; i <= 20; i++) {
-    doubleClickPromises.push(request('POST', '/orders', { userId: 'u_fast_clicker', productId: 'pclick1' }));
+    doubleClickPromises.push(request('POST', '/orders', { userId: `u_clicker_${runId}`, productId: pclickId }));
   }
   const doubleClickResults = await Promise.all(doubleClickPromises);
 
@@ -188,10 +193,10 @@ async function runTests() {
   console.log(`   Results -> 201 Created: ${dcCount201}, 409 Conflicts: ${dcCount409}`);
   assert(dcCount201 === 1 && dcCount409 === 19, 'EXACTLY 1 request succeeded, 19 rejected with 409');
 
-  const pclickCheck = await request('GET', '/products/pclick1');
+  const pclickCheck = await request('GET', `/products/${pclickId}`);
   assert(pclickCheck.data.stock === 999, 'Stock decremented by exactly 1 (1000 -> 999)');
 
-  const userClickOrders = await request('GET', '/users/u_fast_clicker/orders');
+  const userClickOrders = await request('GET', `/users/u_clicker_${runId}/orders`);
   assert(userClickOrders.data.orders.length === 1, 'User order history has exactly 1 order');
 
   console.log('\n======================================================');
